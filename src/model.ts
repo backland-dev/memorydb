@@ -5,13 +5,22 @@
  * Querying, update
  */
 
-var util = require('util'),
-  _ = require('underscore'),
-  modifierFunctions = {},
-  lastStepModifierFunctions = {},
-  comparisonFunctions = {},
-  logicalOperators = {},
-  arrayComparisonFunctions = {};
+import _ from 'underscore';
+
+import { isDate, isRegExp } from './util';
+
+/**
+ * Handle models (i.e. docs)
+ * Serialization/deserialization
+ * Copying
+ * Querying, update
+ */
+
+let modifierFunctions: any = {},
+  lastStepModifierFunctions: any = {},
+  comparisonFunctions: any = {},
+  logicalOperators: any = {},
+  arrayComparisonFunctions: any = {};
 
 /**
  * Check a key, throw an error if the key is non valid
@@ -46,14 +55,14 @@ function checkKey(k, v) {
  * Works by applying the above checkKey function to all fields recursively
  */
 function checkObject(obj) {
-  if (util.isArray(obj)) {
-    obj.forEach(function(o) {
+  if (Array.isArray(obj)) {
+    obj.forEach(function (o) {
       checkObject(o);
     });
   }
 
   if (typeof obj === 'object' && obj !== null) {
-    Object.keys(obj).forEach(function(k) {
+    Object.keys(obj).forEach(function (k) {
       checkKey(k, obj[k]);
       checkObject(obj[k]);
     });
@@ -69,9 +78,9 @@ function checkObject(obj) {
  * Accepted secondary types: Objects, Arrays
  */
 function serialize(obj) {
-  var res;
+  let res;
 
-  res = JSON.stringify(obj, function(k, v) {
+  res = JSON.stringify(obj, function (k, v) {
     checkKey(k, v);
 
     if (v === undefined) {
@@ -98,7 +107,7 @@ function serialize(obj) {
  * Return the object itself
  */
 function deserialize(rawData) {
-  return JSON.parse(rawData, function(k, v) {
+  return JSON.parse(rawData, function (k, v) {
     if (k === '$$date') {
       return new Date(v);
     }
@@ -118,22 +127,16 @@ function deserialize(rawData) {
  * The optional strictKeys flag (defaulting to false) indicates whether to copy everything or only fields
  * where the keys are valid, i.e. don't begin with $ and don't contain a .
  */
-function deepCopy(obj, strictKeys) {
-  var res;
+function deepCopy(obj, strictKeys?) {
+  let res;
 
-  if (
-    typeof obj === 'boolean' ||
-    typeof obj === 'number' ||
-    typeof obj === 'string' ||
-    obj === null ||
-    util.isDate(obj)
-  ) {
+  if (typeof obj === 'boolean' || typeof obj === 'number' || typeof obj === 'string' || obj === null || isDate(obj)) {
     return obj;
   }
 
-  if (util.isArray(obj)) {
-    res = [];
-    obj.forEach(function(o) {
+  if (Array.isArray(obj)) {
+    res = [] as any[];
+    obj.forEach(function (o) {
       res.push(deepCopy(o, strictKeys));
     });
     return res;
@@ -141,7 +144,7 @@ function deepCopy(obj, strictKeys) {
 
   if (typeof obj === 'object') {
     res = {};
-    Object.keys(obj).forEach(function(k) {
+    Object.keys(obj).forEach(function (k) {
       if (!strictKeys || (k[0] !== '$' && k.indexOf('.') === -1)) {
         res[k] = deepCopy(obj[k], strictKeys);
       }
@@ -162,8 +165,8 @@ function isPrimitiveType(obj) {
     typeof obj === 'number' ||
     typeof obj === 'string' ||
     obj === null ||
-    util.isDate(obj) ||
-    util.isArray(obj)
+    isDate(obj) ||
+    Array.isArray(obj)
   );
 }
 
@@ -183,7 +186,7 @@ function compareNSB(a, b) {
 }
 
 function compareArrays(a, b) {
-  var i, comp;
+  let i, comp;
 
   for (i = 0; i < Math.min(a.length, b.length); i += 1) {
     comp = compareThings(a[i], b[i]);
@@ -207,8 +210,8 @@ function compareArrays(a, b) {
  *
  * @param {Function} _compareStrings String comparing function, returning -1, 0 or 1, overriding default string comparison (useful for languages with accented letters)
  */
-function compareThings(a, b, _compareStrings) {
-  var aKeys,
+function compareThings(a, b, _compareStrings?) {
+  let aKeys,
     bKeys,
     comp,
     i,
@@ -255,19 +258,19 @@ function compareThings(a, b, _compareStrings) {
   }
 
   // Dates
-  if (util.isDate(a)) {
-    return util.isDate(b) ? compareNSB(a.getTime(), b.getTime()) : -1;
+  if (isDate(a)) {
+    return isDate(b) ? compareNSB(a.getTime(), b.getTime()) : -1;
   }
-  if (util.isDate(b)) {
-    return util.isDate(a) ? compareNSB(a.getTime(), b.getTime()) : 1;
+  if (isDate(b)) {
+    return isDate(a) ? compareNSB(a.getTime(), b.getTime()) : 1;
   }
 
   // Arrays (first element is most significant and so on)
-  if (util.isArray(a)) {
-    return util.isArray(b) ? compareArrays(a, b) : -1;
+  if (Array.isArray(a)) {
+    return Array.isArray(b) ? compareArrays(a, b) : -1;
   }
-  if (util.isArray(b)) {
-    return util.isArray(a) ? compareArrays(a, b) : 1;
+  if (Array.isArray(b)) {
+    return Array.isArray(a) ? compareArrays(a, b) : 1;
   }
 
   // Objects
@@ -301,14 +304,14 @@ function compareThings(a, b, _compareStrings) {
 /**
  * Set a field to a new value
  */
-lastStepModifierFunctions.$set = function(obj, field, value) {
+lastStepModifierFunctions.$set = function (obj, field, value) {
   obj[field] = value;
 };
 
 /**
  * Unset a field
  */
-lastStepModifierFunctions.$unset = function(obj, field, value) {
+lastStepModifierFunctions.$unset = function (obj, field, value) {
   delete obj[field];
 };
 
@@ -318,32 +321,29 @@ lastStepModifierFunctions.$unset = function(obj, field, value) {
  * Optional modifier $slice to slice the resulting array, see https://docs.mongodb.org/manual/reference/operator/update/slice/
  * Différeence with MongoDB: if $slice is specified and not $each, we act as if value is an empty array
  */
-lastStepModifierFunctions.$push = function(obj, field, value) {
+lastStepModifierFunctions.$push = function (obj, field, value) {
   // Create the array if it doesn't exist
   if (!obj.hasOwnProperty(field)) {
-    obj[field] = [];
+    obj[field] = [] as any[];
   }
 
-  if (!util.isArray(obj[field])) {
+  if (!Array.isArray(obj[field])) {
     throw new Error("Can't $push an element on non-array values");
   }
 
   if (value !== null && typeof value === 'object' && value.$slice && value.$each === undefined) {
-    value.$each = [];
+    value.$each = [] as any[];
   }
 
   if (value !== null && typeof value === 'object' && value.$each) {
-    if (
-      Object.keys(value).length >= 3 ||
-      (Object.keys(value).length === 2 && value.$slice === undefined)
-    ) {
+    if (Object.keys(value).length >= 3 || (Object.keys(value).length === 2 && value.$slice === undefined)) {
       throw new Error('Can only use $slice in cunjunction with $each when $push to array');
     }
-    if (!util.isArray(value.$each)) {
+    if (!Array.isArray(value.$each)) {
       throw new Error('$each requires an array value');
     }
 
-    value.$each.forEach(function(v) {
+    value.$each.forEach(function (v) {
       obj[field].push(v);
     });
 
@@ -352,9 +352,9 @@ lastStepModifierFunctions.$push = function(obj, field, value) {
     }
 
     if (value.$slice === 0) {
-      obj[field] = [];
+      obj[field] = [] as any[];
     } else {
-      var start,
+      let start,
         end,
         n = obj[field].length;
       if (value.$slice < 0) {
@@ -376,15 +376,15 @@ lastStepModifierFunctions.$push = function(obj, field, value) {
  * No modification if the element is already in the array
  * Note that it doesn't check whether the original array contains duplicates
  */
-lastStepModifierFunctions.$addToSet = function(obj, field, value) {
-  var addToSet = true;
+lastStepModifierFunctions.$addToSet = function (obj, field, value) {
+  let addToSet = true;
 
   // Create the array if it doesn't exist
   if (!obj.hasOwnProperty(field)) {
-    obj[field] = [];
+    obj[field] = [] as any[];
   }
 
-  if (!util.isArray(obj[field])) {
+  if (!Array.isArray(obj[field])) {
     throw new Error("Can't $addToSet an element on non-array values");
   }
 
@@ -392,15 +392,15 @@ lastStepModifierFunctions.$addToSet = function(obj, field, value) {
     if (Object.keys(value).length > 1) {
       throw new Error("Can't use another field in conjunction with $each");
     }
-    if (!util.isArray(value.$each)) {
+    if (!Array.isArray(value.$each)) {
       throw new Error('$each requires an array value');
     }
 
-    value.$each.forEach(function(v) {
+    value.$each.forEach(function (v) {
       lastStepModifierFunctions.$addToSet(obj, field, v);
     });
   } else {
-    obj[field].forEach(function(v) {
+    obj[field].forEach(function (v) {
       if (compareThings(v, value) === 0) {
         addToSet = false;
       }
@@ -414,8 +414,8 @@ lastStepModifierFunctions.$addToSet = function(obj, field, value) {
 /**
  * Remove the first or last element of an array
  */
-lastStepModifierFunctions.$pop = function(obj, field, value) {
-  if (!util.isArray(obj[field])) {
+lastStepModifierFunctions.$pop = function (obj, field, value) {
+  if (!Array.isArray(obj[field])) {
     throw new Error("Can't $pop an element from non-array values");
   }
   if (typeof value !== 'number') {
@@ -435,10 +435,10 @@ lastStepModifierFunctions.$pop = function(obj, field, value) {
 /**
  * Removes all instances of a value from an existing array
  */
-lastStepModifierFunctions.$pull = function(obj, field, value) {
-  var arr, i;
+lastStepModifierFunctions.$pull = function (obj, field, value) {
+  let arr, i;
 
-  if (!util.isArray(obj[field])) {
+  if (!Array.isArray(obj[field])) {
     throw new Error("Can't $pull an element from non-array values");
   }
 
@@ -453,7 +453,7 @@ lastStepModifierFunctions.$pull = function(obj, field, value) {
 /**
  * Increment a numeric field's value
  */
-lastStepModifierFunctions.$inc = function(obj, field, value) {
+lastStepModifierFunctions.$inc = function (obj, field, value) {
   if (typeof value !== 'number') {
     throw new Error(value + ' must be a number');
   }
@@ -472,7 +472,7 @@ lastStepModifierFunctions.$inc = function(obj, field, value) {
 /**
  * Updates the value of the field, only if specified field is greater than the current value of the field
  */
-lastStepModifierFunctions.$max = function(obj, field, value) {
+lastStepModifierFunctions.$max = function (obj, field, value) {
   if (typeof obj[field] === 'undefined') {
     obj[field] = value;
   } else if (value > obj[field]) {
@@ -483,7 +483,7 @@ lastStepModifierFunctions.$max = function(obj, field, value) {
 /**
  * Updates the value of the field, only if specified field is smaller than the current value of the field
  */
-lastStepModifierFunctions.$min = function(obj, field, value) {
+lastStepModifierFunctions.$min = function (obj, field, value) {
   if (typeof obj[field] === 'undefined') {
     obj[field] = value;
   } else if (value < obj[field]) {
@@ -493,8 +493,8 @@ lastStepModifierFunctions.$min = function(obj, field, value) {
 
 // Given its name, create the complete modifier function
 function createModifierFunction(modifier) {
-  return function(obj, field, value) {
-    var fieldParts = typeof field === 'string' ? field.split('.') : field;
+  return function (obj, field, value) {
+    let fieldParts = typeof field === 'string' ? field.split('.') : field;
 
     if (fieldParts.length === 1) {
       lastStepModifierFunctions[modifier](obj, field, value);
@@ -511,7 +511,7 @@ function createModifierFunction(modifier) {
 }
 
 // Actually create all modifier functions
-Object.keys(lastStepModifierFunctions).forEach(function(modifier) {
+Object.keys(lastStepModifierFunctions).forEach(function (modifier) {
   modifierFunctions[modifier] = createModifierFunction(modifier);
 });
 
@@ -519,11 +519,11 @@ Object.keys(lastStepModifierFunctions).forEach(function(modifier) {
  * Modify a DB object according to an update query
  */
 function modify(obj, updateQuery) {
-  var keys = Object.keys(updateQuery),
-    firstChars = _.map(keys, function(item) {
+  let keys = Object.keys(updateQuery),
+    firstChars = _.map(keys, function (item) {
       return item[0];
     }),
-    dollarFirstChars = _.filter(firstChars, function(c) {
+    dollarFirstChars = _.filter(firstChars, function (c) {
       return c === '$';
     }),
     newDoc,
@@ -545,8 +545,8 @@ function modify(obj, updateQuery) {
     // Apply modifiers
     modifiers = _.uniq(keys);
     newDoc = deepCopy(obj);
-    modifiers.forEach(function(m) {
-      var keys;
+    modifiers.forEach(function (m) {
+      let keys;
 
       if (!modifierFunctions[m]) {
         throw new Error('Unknown modifier ' + m);
@@ -559,7 +559,7 @@ function modify(obj, updateQuery) {
       }
 
       keys = Object.keys(updateQuery[m]);
-      keys.forEach(function(k) {
+      keys.forEach(function (k) {
         modifierFunctions[m](newDoc, k, updateQuery[m][k]);
       });
     });
@@ -584,7 +584,7 @@ function modify(obj, updateQuery) {
  * @param {String} field
  */
 function getDotValue(obj, field) {
-  var fieldParts = typeof field === 'string' ? field.split('.') : field,
+  let fieldParts = typeof field === 'string' ? field.split('.') : field,
     i,
     objs;
 
@@ -600,7 +600,7 @@ function getDotValue(obj, field) {
     return obj[fieldParts[0]];
   }
 
-  if (util.isArray(obj[fieldParts[0]])) {
+  if (Array.isArray(obj[fieldParts[0]])) {
     // If the next field is an integer, return only this item of the array
     i = parseInt(fieldParts[1], 10);
     if (typeof i === 'number' && !isNaN(i)) {
@@ -625,7 +625,7 @@ function getDotValue(obj, field) {
  * Returns true if they are, false otherwise
  */
 function areThingsEqual(a, b) {
-  var aKeys, bKeys, i;
+  let aKeys, bKeys, i;
 
   // Strings, booleans, numbers, null
   if (
@@ -642,14 +642,14 @@ function areThingsEqual(a, b) {
   }
 
   // Dates
-  if (util.isDate(a) || util.isDate(b)) {
-    return util.isDate(a) && util.isDate(b) && a.getTime() === b.getTime();
+  if (isDate(a) || isDate(b)) {
+    return isDate(a) && isDate(b) && a.getTime() === b.getTime();
   }
 
   // Arrays (no match since arrays are used as a $in)
   // undefined (no match since they mean field doesn't exist and can't be serialized)
   if (
-    (!(util.isArray(a) && util.isArray(b)) && (util.isArray(a) || util.isArray(b))) ||
+    (!(Array.isArray(a) && Array.isArray(b)) && (Array.isArray(a) || Array.isArray(b))) ||
     a === undefined ||
     b === undefined
   ) {
@@ -686,10 +686,10 @@ function areComparable(a, b) {
   if (
     typeof a !== 'string' &&
     typeof a !== 'number' &&
-    !util.isDate(a) &&
+    !isDate(a) &&
     typeof b !== 'string' &&
     typeof b !== 'number' &&
-    !util.isDate(b)
+    !isDate(b)
   ) {
     return false;
   }
@@ -706,33 +706,33 @@ function areComparable(a, b) {
  * @param {Native value} a Value in the object
  * @param {Native value} b Value in the query
  */
-comparisonFunctions.$lt = function(a, b) {
+comparisonFunctions.$lt = function (a, b) {
   return areComparable(a, b) && a < b;
 };
 
-comparisonFunctions.$lte = function(a, b) {
+comparisonFunctions.$lte = function (a, b) {
   return areComparable(a, b) && a <= b;
 };
 
-comparisonFunctions.$gt = function(a, b) {
+comparisonFunctions.$gt = function (a, b) {
   return areComparable(a, b) && a > b;
 };
 
-comparisonFunctions.$gte = function(a, b) {
+comparisonFunctions.$gte = function (a, b) {
   return areComparable(a, b) && a >= b;
 };
 
-comparisonFunctions.$ne = function(a, b) {
+comparisonFunctions.$ne = function (a, b) {
   if (a === undefined) {
     return true;
   }
   return !areThingsEqual(a, b);
 };
 
-comparisonFunctions.$in = function(a, b) {
-  var i;
+comparisonFunctions.$in = function (a, b) {
+  let i;
 
-  if (!util.isArray(b)) {
+  if (!Array.isArray(b)) {
     throw new Error('$in operator called with a non-array');
   }
 
@@ -745,16 +745,16 @@ comparisonFunctions.$in = function(a, b) {
   return false;
 };
 
-comparisonFunctions.$nin = function(a, b) {
-  if (!util.isArray(b)) {
+comparisonFunctions.$nin = function (a, b) {
+  if (!Array.isArray(b)) {
     throw new Error('$nin operator called with a non-array');
   }
 
   return !comparisonFunctions.$in(a, b);
 };
 
-comparisonFunctions.$regex = function(a, b) {
-  if (!util.isRegExp(b)) {
+comparisonFunctions.$regex = function (a, b) {
+  if (!isRegExp(b)) {
     throw new Error('$regex operator called with non regular expression');
   }
 
@@ -765,7 +765,7 @@ comparisonFunctions.$regex = function(a, b) {
   }
 };
 
-comparisonFunctions.$exists = function(value, exists) {
+comparisonFunctions.$exists = function (value, exists) {
   if (exists || exists === '') {
     // This will be true for all values of exists except false, null, undefined and 0
     exists = true; // That's strange behaviour (we should only use true/false) but that's the way Mongo does it...
@@ -781,8 +781,8 @@ comparisonFunctions.$exists = function(value, exists) {
 };
 
 // Specific to arrays
-comparisonFunctions.$size = function(obj, value) {
-  if (!util.isArray(obj)) {
+comparisonFunctions.$size = function (obj, value) {
+  if (!Array.isArray(obj)) {
     return false;
   }
   if (value % 1 !== 0) {
@@ -791,12 +791,12 @@ comparisonFunctions.$size = function(obj, value) {
 
   return obj.length == value;
 };
-comparisonFunctions.$elemMatch = function(obj, value) {
-  if (!util.isArray(obj)) {
+comparisonFunctions.$elemMatch = function (obj, value) {
+  if (!Array.isArray(obj)) {
     return false;
   }
-  var i = obj.length;
-  var result = false; // Initialize result
+  let i = obj.length;
+  let result = false; // Initialize result
   while (i--) {
     if (match(obj[i], value)) {
       // If match for array element, return true
@@ -814,10 +814,10 @@ arrayComparisonFunctions.$elemMatch = true;
  * @param {Model} obj
  * @param {Array of Queries} query
  */
-logicalOperators.$or = function(obj, query) {
-  var i;
+logicalOperators.$or = function (obj, query) {
+  let i;
 
-  if (!util.isArray(query)) {
+  if (!Array.isArray(query)) {
     throw new Error('$or operator used without an array');
   }
 
@@ -835,10 +835,10 @@ logicalOperators.$or = function(obj, query) {
  * @param {Model} obj
  * @param {Array of Queries} query
  */
-logicalOperators.$and = function(obj, query) {
-  var i;
+logicalOperators.$and = function (obj, query) {
+  let i;
 
-  if (!util.isArray(query)) {
+  if (!Array.isArray(query)) {
     throw new Error('$and operator used without an array');
   }
 
@@ -856,7 +856,7 @@ logicalOperators.$and = function(obj, query) {
  * @param {Model} obj
  * @param {Query} query
  */
-logicalOperators.$not = function(obj, query) {
+logicalOperators.$not = function (obj, query) {
   return !match(obj, query);
 };
 
@@ -865,8 +865,8 @@ logicalOperators.$not = function(obj, query) {
  * @param {Model} obj
  * @param {Query} query
  */
-logicalOperators.$where = function(obj, fn) {
-  var result;
+logicalOperators.$where = function (obj, fn) {
+  let result;
 
   if (!_.isFunction(fn)) {
     throw new Error('$where operator used without a function');
@@ -886,7 +886,7 @@ logicalOperators.$where = function(obj, fn) {
  * @param {Object} query
  */
 function match(obj, query) {
-  var queryKeys, queryKey, queryValue, i;
+  let queryKeys, queryKey, queryValue, i;
 
   // Primitive query against a primitive type
   // This is a bit of a hack since we construct an object with an arbitrary key only to dereference it later
@@ -922,22 +922,22 @@ function match(obj, query) {
  * Match an object against a specific { key: value } part of a query
  * if the treatObjAsValue flag is set, don't try to match every part separately, but the array as a whole
  */
-function matchQueryPart(obj, queryKey, queryValue, treatObjAsValue) {
-  var objValue = getDotValue(obj, queryKey),
+function matchQueryPart(obj, queryKey, queryValue, treatObjAsValue?) {
+  let objValue = getDotValue(obj, queryKey),
     i,
     keys,
     firstChars,
     dollarFirstChars;
 
   // Check if the value is an array if we don't force a treatment as value
-  if (util.isArray(objValue) && !treatObjAsValue) {
+  if (Array.isArray(objValue) && !treatObjAsValue) {
     // If the queryValue is an array, try to perform an exact match
-    if (util.isArray(queryValue)) {
+    if (Array.isArray(queryValue)) {
       return matchQueryPart(obj, queryKey, queryValue, true);
     }
 
     // Check if we are using an array-specific comparison function
-    if (queryValue !== null && typeof queryValue === 'object' && !util.isRegExp(queryValue)) {
+    if (queryValue !== null && typeof queryValue === 'object' && !isRegExp(queryValue)) {
       keys = Object.keys(queryValue);
       for (i = 0; i < keys.length; i += 1) {
         if (arrayComparisonFunctions[keys[i]]) {
@@ -957,17 +957,12 @@ function matchQueryPart(obj, queryKey, queryValue, treatObjAsValue) {
 
   // queryValue is an actual object. Determine whether it contains comparison operators
   // or only normal fields. Mixed objects are not allowed
-  if (
-    queryValue !== null &&
-    typeof queryValue === 'object' &&
-    !util.isRegExp(queryValue) &&
-    !util.isArray(queryValue)
-  ) {
+  if (queryValue !== null && typeof queryValue === 'object' && !isRegExp(queryValue) && !Array.isArray(queryValue)) {
     keys = Object.keys(queryValue);
-    firstChars = _.map(keys, function(item) {
+    firstChars = _.map(keys, function (item) {
       return item[0];
     });
-    dollarFirstChars = _.filter(firstChars, function(c) {
+    dollarFirstChars = _.filter(firstChars, function (c) {
       return c === '$';
     });
 
@@ -991,7 +986,7 @@ function matchQueryPart(obj, queryKey, queryValue, treatObjAsValue) {
   }
 
   // Using regular expressions with basic querying
-  if (util.isRegExp(queryValue)) {
+  if (isRegExp(queryValue)) {
     return comparisonFunctions.$regex(objValue, queryValue);
   }
 
@@ -1004,14 +999,15 @@ function matchQueryPart(obj, queryKey, queryValue, treatObjAsValue) {
   return true;
 }
 
-// Interface
-module.exports.serialize = serialize;
-module.exports.deserialize = deserialize;
-module.exports.deepCopy = deepCopy;
-module.exports.checkObject = checkObject;
-module.exports.isPrimitiveType = isPrimitiveType;
-module.exports.modify = modify;
-module.exports.getDotValue = getDotValue;
-module.exports.match = match;
-module.exports.areThingsEqual = areThingsEqual;
-module.exports.compareThings = compareThings;
+export default {
+  serialize,
+  deserialize,
+  deepCopy,
+  checkObject,
+  isPrimitiveType,
+  modify,
+  getDotValue,
+  match,
+  areThingsEqual,
+  compareThings,
+};

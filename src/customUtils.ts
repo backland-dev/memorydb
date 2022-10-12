@@ -8,10 +8,10 @@
  * NOTE: Math.random() does not guarantee "cryptographic quality" but we actually don't need it
  */
 function randomBytes(size) {
-  var bytes = new Array(size);
-  var r;
+  let bytes = new Array(size);
+  let r;
 
-  for (var i = 0, r; i < size; i++) {
+  for (let i = 0, r; i < size; i++) {
     if ((i & 0x03) == 0) r = Math.random() * 0x100000000;
     bytes[i] = (r >>> ((i & 0x03) << 3)) & 0xff;
   }
@@ -24,7 +24,7 @@ function randomBytes(size) {
  * https://github.com/beatgammit/base64-js/
  */
 function byteArrayToBase64(uint8) {
-  var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
+  let lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
     extraBytes = uint8.length % 3, // if we have 1 byte left, pad 2 bytes
     output = '',
     temp,
@@ -32,12 +32,7 @@ function byteArrayToBase64(uint8) {
     i;
 
   function tripletToBase64(num) {
-    return (
-      lookup[(num >> 18) & 0x3f] +
-      lookup[(num >> 12) & 0x3f] +
-      lookup[(num >> 6) & 0x3f] +
-      lookup[num & 0x3f]
-    );
+    return lookup[(num >> 18) & 0x3f] + lookup[(num >> 12) & 0x3f] + lookup[(num >> 6) & 0x3f] + lookup[num & 0x3f];
   }
 
   // go through the array every three bytes, we'll deal with trailing stuff later
@@ -80,4 +75,6 @@ function uid(len) {
     .slice(0, len);
 }
 
-module.exports.uid = uid;
+export { uid };
+
+export default { uid };

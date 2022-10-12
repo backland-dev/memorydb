@@ -58,7 +58,7 @@ Also, if `loadDatabase` fails, all commands registered to the executor afterward
 
 ```javascript
 // Type 1: In-memory only datastore (no need to load the database)
-var Datastore = require('react-native-local-mongodb')
+let Datastore = require('react-native-local-mongodb')
   , db = new Datastore();
 
 
@@ -72,7 +72,7 @@ db.loadDatabase(function (err) {    // Callback is optional
 
 
 // Type 3: Persistent datastore with automatic loading
-var Datastore = require('react-native-local-mongodb')
+let Datastore = require('react-native-local-mongodb')
   , db = new Datastore({ filename: 'asyncStorageKey', storage: AsyncStorage, autoload: true });
 // You can issue commands right away
 ```
@@ -141,7 +141,7 @@ If the document does not contain an `_id` field, react-native-local-mongodb will
 Field names cannot begin by '$' or contain a '.'.
 
 ```javascript
-var doc = { hello: 'world'
+let doc = { hello: 'world'
                , n: 5
                , today: new Date()
                , react-native-local-mongodbIsAwesome: true

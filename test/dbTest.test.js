@@ -1,17 +1,19 @@
-var should = require('chai').should(),
+let should = require('chai').should(),
   assert = require('chai').assert,
   testDb = 'workspace/test.db',
   _ = require('underscore'),
   async = require('async'),
-  Datastore = require('../lib/datastore'),
   storage = require('../config/AsyncStorageMock'),
   reloadTimeUpperBound = 60; // In ms, an upper bound for the reload time used to check createdAt and updatedAt
 
+import { MemoryDB } from '../src/memoryDB';
+
 describe('Database', function () {
-  var d;
+  let d;
+  this.timeout(100000000);
 
   beforeEach(function (done) {
-    d = new Datastore({ filename: testDb, storage });
+    d = new MemoryDB({ filename: testDb, storage });
     d.filename.should.equal(testDb);
     d.inMemoryOnly.should.equal(false);
 
@@ -85,7 +87,7 @@ describe('Database', function () {
     });
 
     it('Can insert and get back from DB complex objects with all primitive and secondary types', function (done) {
-      var da = new Date(),
+      let da = new Date(),
         obj = { a: ['ee', 'ff', 42], date: da, subobj: { a: 'b', b: 'c' } };
 
       d.insert(obj, function (err) {
@@ -164,9 +166,9 @@ describe('Database', function () {
     });
 
     it('If timestampData option is set, a createdAt field is added and persisted', function (done) {
-      var newDoc = { hello: 'world' },
+      let newDoc = { hello: 'world' },
         beginning = Date.now();
-      d = new Datastore({
+      d = new MemoryDB({
         filename: testDb,
         timestampData: true,
         autoload: true,
@@ -186,10 +188,7 @@ describe('Database', function () {
           insertedDoc.createdAt.should.equal(insertedDoc.updatedAt);
           assert.isDefined(insertedDoc._id);
           Object.keys(insertedDoc).length.should.equal(4);
-          assert.isBelow(
-            Math.abs(insertedDoc.createdAt.getTime() - beginning),
-            reloadTimeUpperBound
-          ); // No more than 30ms should have elapsed (worst case, if there is a flush)
+          assert.isBelow(Math.abs(insertedDoc.createdAt.getTime() - beginning), reloadTimeUpperBound); // No more than 30ms should have elapsed (worst case, if there is a flush)
 
           // Modifying results of insert doesn't change the cache
           insertedDoc.bloup = 'another';
@@ -247,9 +246,9 @@ describe('Database', function () {
     });
 
     it("If timestampData is set but createdAt is specified by user, don't change it", function (done) {
-      var newDoc = { hello: 'world', createdAt: new Date(234) },
+      let newDoc = { hello: 'world', createdAt: new Date(234) },
         beginning = Date.now();
-      d = new Datastore({
+      d = new MemoryDB({
         filename: testDb,
         timestampData: true,
         autoload: true,
@@ -258,10 +257,7 @@ describe('Database', function () {
       d.insert(newDoc, function (err, insertedDoc) {
         Object.keys(insertedDoc).length.should.equal(4);
         insertedDoc.createdAt.getTime().should.equal(234); // Not modified
-        assert.isBelow(
-          insertedDoc.updatedAt.getTime() - beginning,
-          reloadTimeUpperBound
-        ); // Created
+        assert.isBelow(insertedDoc.updatedAt.getTime() - beginning, reloadTimeUpperBound); // Created
 
         d.find({}, function (err, docs) {
           assert.deepEqual(insertedDoc, docs[0]);
@@ -278,9 +274,9 @@ describe('Database', function () {
     });
 
     it("If timestampData is set but updatedAt is specified by user, don't change it", function (done) {
-      var newDoc = { hello: 'world', updatedAt: new Date(234) },
+      let newDoc = { hello: 'world', updatedAt: new Date(234) },
         beginning = Date.now();
-      d = new Datastore({
+      d = new MemoryDB({
         filename: testDb,
         timestampData: true,
         autoload: true,
@@ -289,10 +285,7 @@ describe('Database', function () {
       d.insert(newDoc, function (err, insertedDoc) {
         Object.keys(insertedDoc).length.should.equal(4);
         insertedDoc.updatedAt.getTime().should.equal(234); // Not modified
-        assert.isBelow(
-          insertedDoc.createdAt.getTime() - beginning,
-          reloadTimeUpperBound
-        ); // Created
+        assert.isBelow(insertedDoc.createdAt.getTime() - beginning, reloadTimeUpperBound); // Created
 
         d.find({}, function (err, docs) {
           assert.deepEqual(insertedDoc, docs[0]);
@@ -328,9 +321,8 @@ describe('Database', function () {
      * Note: maybe using an in-memory only NeDB would give us an easier solution
      */
     it('If the callback throws an uncaught exception, do not catch it inside findOne, this is userspace concern', function (done) {
-      var tryCount = 0,
-        currentUncaughtExceptionHandlers =
-          process.listeners('uncaughtException'),
+      let tryCount = 0,
+        currentUncaughtExceptionHandlers = process.listeners('uncaughtException'),
         i;
 
       process.removeAllListeners('uncaughtException');
@@ -367,7 +359,7 @@ describe('Database', function () {
             d.insert({ tf: 4, an: 'other' }, function (err, _doc2) {
               d.insert({ tf: 9 }, function () {
                 d.getCandidates({ r: 6, tf: 4 }, function (err, data) {
-                  var doc1 = _.find(data, function (d) {
+                  let doc1 = _.find(data, function (d) {
                       return d._id === _doc1._id;
                     }),
                     doc2 = _.find(data, function (d) {
@@ -393,23 +385,20 @@ describe('Database', function () {
           d.insert({ tf: 6 }, function (err, _doc1) {
             d.insert({ tf: 4, an: 'other' }, function (err) {
               d.insert({ tf: 9 }, function (err, _doc2) {
-                d.getCandidates(
-                  { r: 6, tf: { $in: [6, 9, 5] } },
-                  function (err, data) {
-                    var doc1 = _.find(data, function (d) {
-                        return d._id === _doc1._id;
-                      }),
-                      doc2 = _.find(data, function (d) {
-                        return d._id === _doc2._id;
-                      });
+                d.getCandidates({ r: 6, tf: { $in: [6, 9, 5] } }, function (err, data) {
+                  let doc1 = _.find(data, function (d) {
+                      return d._id === _doc1._id;
+                    }),
+                    doc2 = _.find(data, function (d) {
+                      return d._id === _doc2._id;
+                    });
 
-                    data.length.should.equal(2);
-                    assert.deepEqual(doc1, { _id: doc1._id, tf: 6 });
-                    assert.deepEqual(doc2, { _id: doc2._id, tf: 9 });
+                  data.length.should.equal(2);
+                  assert.deepEqual(doc1, { _id: doc1._id, tf: 6 });
+                  assert.deepEqual(doc2, { _id: doc2._id, tf: 9 });
 
-                    done();
-                  }
-                );
+                  done();
+                });
               });
             });
           });
@@ -423,35 +412,32 @@ describe('Database', function () {
           d.insert({ tf: 6 }, function (err, _doc2) {
             d.insert({ tf: 4, an: 'other' }, function (err, _doc3) {
               d.insert({ tf: 9 }, function (err, _doc4) {
-                d.getCandidates(
-                  { r: 6, notf: { $in: [6, 9, 5] } },
-                  function (err, data) {
-                    var doc1 = _.find(data, function (d) {
-                        return d._id === _doc1._id;
-                      }),
-                      doc2 = _.find(data, function (d) {
-                        return d._id === _doc2._id;
-                      }),
-                      doc3 = _.find(data, function (d) {
-                        return d._id === _doc3._id;
-                      }),
-                      doc4 = _.find(data, function (d) {
-                        return d._id === _doc4._id;
-                      });
-
-                    data.length.should.equal(4);
-                    assert.deepEqual(doc1, { _id: doc1._id, tf: 4 });
-                    assert.deepEqual(doc2, { _id: doc2._id, tf: 6 });
-                    assert.deepEqual(doc3, {
-                      _id: doc3._id,
-                      tf: 4,
-                      an: 'other',
+                d.getCandidates({ r: 6, notf: { $in: [6, 9, 5] } }, function (err, data) {
+                  let doc1 = _.find(data, function (d) {
+                      return d._id === _doc1._id;
+                    }),
+                    doc2 = _.find(data, function (d) {
+                      return d._id === _doc2._id;
+                    }),
+                    doc3 = _.find(data, function (d) {
+                      return d._id === _doc3._id;
+                    }),
+                    doc4 = _.find(data, function (d) {
+                      return d._id === _doc4._id;
                     });
-                    assert.deepEqual(doc4, { _id: doc4._id, tf: 9 });
 
-                    done();
-                  }
-                );
+                  data.length.should.equal(4);
+                  assert.deepEqual(doc1, { _id: doc1._id, tf: 4 });
+                  assert.deepEqual(doc2, { _id: doc2._id, tf: 6 });
+                  assert.deepEqual(doc3, {
+                    _id: doc3._id,
+                    tf: 4,
+                    an: 'other',
+                  });
+                  assert.deepEqual(doc4, { _id: doc4._id, tf: 9 });
+
+                  done();
+                });
               });
             });
           });
@@ -465,23 +451,20 @@ describe('Database', function () {
           d.insert({ tf: 6 }, function (err, _doc2) {
             d.insert({ tf: 4, an: 'other' }, function (err, _doc3) {
               d.insert({ tf: 9 }, function (err, _doc4) {
-                d.getCandidates(
-                  { r: 6, tf: { $lte: 9, $gte: 6 } },
-                  function (err, data) {
-                    var doc2 = _.find(data, function (d) {
-                        return d._id === _doc2._id;
-                      }),
-                      doc4 = _.find(data, function (d) {
-                        return d._id === _doc4._id;
-                      });
+                d.getCandidates({ r: 6, tf: { $lte: 9, $gte: 6 } }, function (err, data) {
+                  let doc2 = _.find(data, function (d) {
+                      return d._id === _doc2._id;
+                    }),
+                    doc4 = _.find(data, function (d) {
+                      return d._id === _doc4._id;
+                    });
 
-                    data.length.should.equal(2);
-                    assert.deepEqual(doc2, { _id: doc2._id, tf: 6 });
-                    assert.deepEqual(doc4, { _id: doc4._id, tf: 9 });
+                  data.length.should.equal(2);
+                  assert.deepEqual(doc2, { _id: doc2._id, tf: 6 });
+                  assert.deepEqual(doc4, { _id: doc4._id, tf: 9 });
 
-                    done();
-                  }
-                );
+                  done();
+                });
               });
             });
           });
@@ -493,34 +476,31 @@ describe('Database', function () {
       d.ensureIndex({ fieldName: 'exp', expireAfterSeconds: 0.2 }, function () {
         d.insert({ hello: 'world1', exp: new Date() }, function () {
           d.insert({ hello: 'world2', exp: new Date() }, function () {
-            d.insert(
-              { hello: 'world3', exp: new Date(new Date().getTime() + 100) },
-              function () {
-                setTimeout(function () {
-                  d.find({}, function (err, docs) {
-                    assert.isNull(err);
-                    docs.length.should.equal(3);
+            d.insert({ hello: 'world3', exp: new Date(new Date().getTime() + 100) }, function () {
+              setTimeout(function () {
+                d.find({}, function (err, docs) {
+                  assert.isNull(err);
+                  docs.length.should.equal(3);
 
-                    setTimeout(function () {
-                      d.find({}, function (err, docs) {
-                        assert.isNull(err);
-                        docs.length.should.equal(1);
-                        docs[0].hello.should.equal('world3');
+                  setTimeout(function () {
+                    d.find({}, function (err, docs) {
+                      assert.isNull(err);
+                      docs.length.should.equal(1);
+                      docs[0].hello.should.equal('world3');
 
-                        setTimeout(function () {
-                          d.find({}, function (err, docs) {
-                            assert.isNull(err);
-                            docs.length.should.equal(0);
+                      setTimeout(function () {
+                        d.find({}, function (err, docs) {
+                          assert.isNull(err);
+                          docs.length.should.equal(0);
 
-                            done();
-                          });
-                        }, 101);
-                      });
-                    }, 101);
-                  });
-                }, 100);
-              }
-            );
+                          done();
+                        });
+                      }, 101);
+                    });
+                  }, 101);
+                });
+              }, 100);
+            });
           });
         });
       });
@@ -562,14 +542,11 @@ describe('Database', function () {
         [
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err) {
-              d.insert(
-                { somedata: 'another', plus: 'additional data' },
-                function (err) {
-                  d.insert({ somedata: 'again' }, function (err) {
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'another', plus: 'additional data' }, function (err) {
+                d.insert({ somedata: 'again' }, function (err) {
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
@@ -596,14 +573,11 @@ describe('Database', function () {
         [
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err) {
-              d.insert(
-                { somedata: 'again', plus: 'additional data' },
-                function (err) {
-                  d.insert({ somedata: 'again' }, function (err) {
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'again', plus: 'additional data' }, function (err) {
+                d.insert({ somedata: 'again' }, function (err) {
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
@@ -633,14 +607,11 @@ describe('Database', function () {
         [
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err) {
-              d.insert(
-                { somedata: 'again', plus: 'additional data' },
-                function (err) {
-                  d.insert({ somedata: 'again' }, function (err) {
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'again', plus: 'additional data' }, function (err) {
+                d.insert({ somedata: 'again' }, function (err) {
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
@@ -667,7 +638,7 @@ describe('Database', function () {
     });
 
     it('Can find dates and objects (non JS-native types)', function (done) {
-      var date1 = new Date(1234543),
+      let date1 = new Date(1234543),
         date2 = new Date(9999);
 
       d.insert({ now: date1, sth: { name: 'nedb' } }, function () {
@@ -718,33 +689,30 @@ describe('Database', function () {
 
     it('Array fields match if any element matches', function (done) {
       d.insert({ fruits: ['pear', 'apple', 'banana'] }, function (err, doc1) {
-        d.insert(
-          { fruits: ['coconut', 'orange', 'pear'] },
-          function (err, doc2) {
-            d.insert({ fruits: ['banana'] }, function (err, doc3) {
-              d.find({ fruits: 'pear' }, function (err, docs) {
+        d.insert({ fruits: ['coconut', 'orange', 'pear'] }, function (err, doc2) {
+          d.insert({ fruits: ['banana'] }, function (err, doc3) {
+            d.find({ fruits: 'pear' }, function (err, docs) {
+              assert.isNull(err);
+              docs.length.should.equal(2);
+              _.pluck(docs, '_id').should.contain(doc1._id);
+              _.pluck(docs, '_id').should.contain(doc2._id);
+
+              d.find({ fruits: 'banana' }, function (err, docs) {
                 assert.isNull(err);
                 docs.length.should.equal(2);
                 _.pluck(docs, '_id').should.contain(doc1._id);
-                _.pluck(docs, '_id').should.contain(doc2._id);
+                _.pluck(docs, '_id').should.contain(doc3._id);
 
-                d.find({ fruits: 'banana' }, function (err, docs) {
+                d.find({ fruits: 'doesntexist' }, function (err, docs) {
                   assert.isNull(err);
-                  docs.length.should.equal(2);
-                  _.pluck(docs, '_id').should.contain(doc1._id);
-                  _.pluck(docs, '_id').should.contain(doc3._id);
+                  docs.length.should.equal(0);
 
-                  d.find({ fruits: 'doesntexist' }, function (err, docs) {
-                    assert.isNull(err);
-                    docs.length.should.equal(0);
-
-                    done();
-                  });
+                  done();
                 });
               });
             });
-          }
-        );
+          });
+        });
       });
     });
 
@@ -900,10 +868,7 @@ describe('Database', function () {
                 assert.isNotNull(err);
                 assert.isUndefined(doc);
 
-                d.findOne({ a: 2 }, { a: 0, hello: 1 }).exec(function (
-                  err,
-                  doc
-                ) {
+                d.findOne({ a: 2 }, { a: 0, hello: 1 }).exec(function (err, doc) {
                   assert.isNotNull(err);
                   assert.isUndefined(doc);
 
@@ -923,14 +888,11 @@ describe('Database', function () {
         [
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err) {
-              d.insert(
-                { somedata: 'another', plus: 'additional data' },
-                function (err) {
-                  d.insert({ somedata: 'again' }, function (err) {
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'another', plus: 'additional data' }, function (err) {
+                d.insert({ somedata: 'again' }, function (err) {
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
@@ -951,14 +913,11 @@ describe('Database', function () {
         [
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err) {
-              d.insert(
-                { somedata: 'again', plus: 'additional data' },
-                function (err) {
-                  d.insert({ somedata: 'again' }, function (err) {
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'again', plus: 'additional data' }, function (err) {
+                d.insert({ somedata: 'again' }, function (err) {
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
@@ -984,29 +943,26 @@ describe('Database', function () {
 
     it('Array fields match if any element matches', function (done) {
       d.insert({ fruits: ['pear', 'apple', 'banana'] }, function (err, doc1) {
-        d.insert(
-          { fruits: ['coconut', 'orange', 'pear'] },
-          function (err, doc2) {
-            d.insert({ fruits: ['banana'] }, function (err, doc3) {
-              d.count({ fruits: 'pear' }, function (err, docs) {
+        d.insert({ fruits: ['coconut', 'orange', 'pear'] }, function (err, doc2) {
+          d.insert({ fruits: ['banana'] }, function (err, doc3) {
+            d.count({ fruits: 'pear' }, function (err, docs) {
+              assert.isNull(err);
+              docs.should.equal(2);
+
+              d.count({ fruits: 'banana' }, function (err, docs) {
                 assert.isNull(err);
                 docs.should.equal(2);
 
-                d.count({ fruits: 'banana' }, function (err, docs) {
+                d.count({ fruits: 'doesntexist' }, function (err, docs) {
                   assert.isNull(err);
-                  docs.should.equal(2);
+                  docs.should.equal(0);
 
-                  d.count({ fruits: 'doesntexist' }, function (err, docs) {
-                    assert.isNull(err);
-                    docs.should.equal(0);
-
-                    done();
-                  });
+                  done();
                 });
               });
             });
-          }
-        );
+          });
+        });
       });
     });
 
@@ -1028,59 +984,51 @@ describe('Database', function () {
         [
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err) {
-              d.insert(
-                { somedata: 'again', plus: 'additional data' },
-                function (err) {
-                  d.insert({ somedata: 'another' }, function (err) {
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'again', plus: 'additional data' }, function (err) {
+                d.insert({ somedata: 'another' }, function (err) {
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
             // Test with query that doesn't match anything
-            d.update(
-              { somedata: 'nope' },
-              { newDoc: 'yes' },
-              { multi: true },
-              function (err, n) {
-                assert.isNull(err);
-                n.should.equal(0);
+            d.update({ somedata: 'nope' }, { newDoc: 'yes' }, { multi: true }, function (err, { numAffected: n }) {
+              assert.isNull(err);
+              n.should.equal(0);
 
-                d.find({}, function (err, docs) {
-                  var doc1 = _.find(docs, function (d) {
-                      return d.somedata === 'ok';
-                    }),
-                    doc2 = _.find(docs, function (d) {
-                      return d.somedata === 'again';
-                    }),
-                    doc3 = _.find(docs, function (d) {
-                      return d.somedata === 'another';
-                    });
-
-                  docs.length.should.equal(3);
-                  assert.isUndefined(
-                    _.find(docs, function (d) {
-                      return d.newDoc === 'yes';
-                    })
-                  );
-
-                  assert.deepEqual(doc1, { _id: doc1._id, somedata: 'ok' });
-                  assert.deepEqual(doc2, {
-                    _id: doc2._id,
-                    somedata: 'again',
-                    plus: 'additional data',
-                  });
-                  assert.deepEqual(doc3, {
-                    _id: doc3._id,
-                    somedata: 'another',
+              d.find({}, function (err, docs) {
+                let doc1 = _.find(docs, function (d) {
+                    return d.somedata === 'ok';
+                  }),
+                  doc2 = _.find(docs, function (d) {
+                    return d.somedata === 'again';
+                  }),
+                  doc3 = _.find(docs, function (d) {
+                    return d.somedata === 'another';
                   });
 
-                  return cb();
+                docs.length.should.equal(3);
+                assert.isUndefined(
+                  _.find(docs, function (d) {
+                    return d.newDoc === 'yes';
+                  })
+                );
+
+                assert.deepEqual(doc1, { _id: doc1._id, somedata: 'ok' });
+                assert.deepEqual(doc2, {
+                  _id: doc2._id,
+                  somedata: 'again',
+                  plus: 'additional data',
                 });
-              }
-            );
+                assert.deepEqual(doc3, {
+                  _id: doc3._id,
+                  somedata: 'another',
+                });
+
+                return cb();
+              });
+            });
           },
         ],
         done
@@ -1088,59 +1036,45 @@ describe('Database', function () {
     });
 
     it('If timestampData option is set, update the updatedAt field', function (done) {
-      var beginning = Date.now();
-      d = new Datastore({
+      let beginning = Date.now();
+      d = new MemoryDB({
         filename: testDb,
         autoload: true,
         timestampData: true,
         storage,
       });
       d.insert({ hello: 'world' }, function (err, insertedDoc) {
-        assert.isBelow(
-          insertedDoc.updatedAt.getTime() - beginning,
-          reloadTimeUpperBound
-        );
-        assert.isBelow(
-          insertedDoc.createdAt.getTime() - beginning,
-          reloadTimeUpperBound
-        );
+        assert.isBelow(insertedDoc.updatedAt.getTime() - beginning, reloadTimeUpperBound);
+        assert.isBelow(insertedDoc.createdAt.getTime() - beginning, reloadTimeUpperBound);
         Object.keys(insertedDoc).length.should.equal(4);
 
         // Wait 100ms before performing the update
         setTimeout(function () {
-          var step1 = Date.now();
-          d.update(
-            { _id: insertedDoc._id },
-            { $set: { hello: 'mars' } },
-            {},
-            function () {
-              d.find({ _id: insertedDoc._id }, function (err, docs) {
-                docs.length.should.equal(1);
-                Object.keys(docs[0]).length.should.equal(4);
-                docs[0]._id.should.equal(insertedDoc._id);
-                docs[0].createdAt.should.equal(insertedDoc.createdAt);
-                docs[0].hello.should.equal('mars');
-                assert.isAbove(docs[0].updatedAt.getTime() - beginning, 99); // updatedAt modified
-                assert.isBelow(
-                  docs[0].updatedAt.getTime() - step1,
-                  reloadTimeUpperBound
-                ); // updatedAt modified
+          let step1 = Date.now();
+          d.update({ _id: insertedDoc._id }, { $set: { hello: 'mars' } }, {}, function () {
+            d.find({ _id: insertedDoc._id }, function (err, docs) {
+              docs.length.should.equal(1);
+              Object.keys(docs[0]).length.should.equal(4);
+              docs[0]._id.should.equal(insertedDoc._id);
+              docs[0].createdAt.should.equal(insertedDoc.createdAt);
+              docs[0].hello.should.equal('mars');
+              assert.isAbove(docs[0].updatedAt.getTime() - beginning, 99); // updatedAt modified
+              assert.isBelow(docs[0].updatedAt.getTime() - step1, reloadTimeUpperBound); // updatedAt modified
 
-                done();
-              });
-            }
-          );
+              done();
+            });
+          });
         }, 100);
       });
     });
 
     it('Can update multiple documents matching the query', function (done) {
-      var id1, id2, id3;
+      let id1, id2, id3;
 
       // Test DB state after update and reload
       function testPostUpdateState(cb) {
         d.find({}, function (err, docs) {
-          var doc1 = _.find(docs, function (d) {
+          let doc1 = _.find(docs, function (d) {
               return d._id === id1;
             }),
             doc2 = _.find(docs, function (d) {
@@ -1174,29 +1108,21 @@ describe('Database', function () {
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err, doc1) {
               id1 = doc1._id;
-              d.insert(
-                { somedata: 'again', plus: 'additional data' },
-                function (err, doc2) {
-                  id2 = doc2._id;
-                  d.insert({ somedata: 'again' }, function (err, doc3) {
-                    id3 = doc3._id;
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'again', plus: 'additional data' }, function (err, doc2) {
+                id2 = doc2._id;
+                d.insert({ somedata: 'again' }, function (err, doc3) {
+                  id3 = doc3._id;
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
-            d.update(
-              { somedata: 'again' },
-              { newDoc: 'yes' },
-              { multi: true },
-              function (err, n) {
-                assert.isNull(err);
-                n.should.equal(2);
-                return cb();
-              }
-            );
+            d.update({ somedata: 'again' }, { newDoc: 'yes' }, { multi: true }, function (err, { numAffected: n }) {
+              assert.isNull(err);
+              n.should.equal(2);
+              return cb();
+            });
           },
           async.apply(testPostUpdateState),
           function (cb) {
@@ -1211,12 +1137,12 @@ describe('Database', function () {
     });
 
     it('Can update only one document matching the query', function (done) {
-      var id1, id2, id3;
+      let id1, id2, id3;
 
       // Test DB state after update and reload
       function testPostUpdateState(cb) {
         d.find({}, function (err, docs) {
-          var doc1 = _.find(docs, function (d) {
+          let doc1 = _.find(docs, function (d) {
               return d._id === id1;
             }),
             doc2 = _.find(docs, function (d) {
@@ -1254,30 +1180,22 @@ describe('Database', function () {
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err, doc1) {
               id1 = doc1._id;
-              d.insert(
-                { somedata: 'again', plus: 'additional data' },
-                function (err, doc2) {
-                  id2 = doc2._id;
-                  d.insert({ somedata: 'again' }, function (err, doc3) {
-                    id3 = doc3._id;
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'again', plus: 'additional data' }, function (err, doc2) {
+                id2 = doc2._id;
+                d.insert({ somedata: 'again' }, function (err, doc3) {
+                  id3 = doc3._id;
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
             // Test with query that doesn't match anything
-            d.update(
-              { somedata: 'again' },
-              { newDoc: 'yes' },
-              { multi: false },
-              function (err, n) {
-                assert.isNull(err);
-                n.should.equal(1);
-                return cb();
-              }
-            );
+            d.update({ somedata: 'again' }, { newDoc: 'yes' }, { multi: false }, function (err, { numAffected: n }) {
+              assert.isNull(err);
+              n.should.equal(1);
+              return cb();
+            });
           },
           async.apply(testPostUpdateState),
           function (cb) {
@@ -1297,7 +1215,7 @@ describe('Database', function () {
           { impossible: 'db is empty anyway' },
           { newDoc: true },
           {},
-          function (err, nr, upsert) {
+          function (err, { numAffected: nr, upsert }) {
             assert.isNull(err);
             nr.should.equal(0);
             assert.isUndefined(upsert);
@@ -1309,7 +1227,7 @@ describe('Database', function () {
                 { impossible: 'db is empty anyway' },
                 { something: 'created ok' },
                 { upsert: true },
-                function (err, nr, newDoc) {
+                function (err, { numAffected: nr, updated: newDoc }) {
                   assert.isNull(err);
                   nr.should.equal(1);
                   newDoc.something.should.equal('created ok');
@@ -1336,22 +1254,17 @@ describe('Database', function () {
       });
 
       it('If the update query is a normal object with no modifiers, it is the doc that will be upserted', function (done) {
-        d.update(
-          { $or: [{ a: 4 }, { a: 5 }] },
-          { hello: 'world', bloup: 'blap' },
-          { upsert: true },
-          function (err) {
-            d.find({}, function (err, docs) {
-              assert.isNull(err);
-              docs.length.should.equal(1);
-              var doc = docs[0];
-              Object.keys(doc).length.should.equal(3);
-              doc.hello.should.equal('world');
-              doc.bloup.should.equal('blap');
-              done();
-            });
-          }
-        );
+        d.update({ $or: [{ a: 4 }, { a: 5 }] }, { hello: 'world', bloup: 'blap' }, { upsert: true }, function (err) {
+          d.find({}, function (err, docs) {
+            assert.isNull(err);
+            docs.length.should.equal(1);
+            let doc = docs[0];
+            Object.keys(doc).length.should.equal(3);
+            doc.hello.should.equal('world');
+            doc.bloup.should.equal('blap');
+            done();
+          });
+        });
       });
 
       it('If the update query contains modifiers, it is applied to the object resulting from removing all operators from the find query 1', function (done) {
@@ -1363,7 +1276,7 @@ describe('Database', function () {
             d.find({ hello: 'world' }, function (err, docs) {
               assert.isNull(err);
               docs.length.should.equal(1);
-              var doc = docs[0];
+              let doc = docs[0];
               Object.keys(doc).length.should.equal(3);
               doc.hello.should.equal('world');
               doc.bloup.should.equal(3);
@@ -1382,7 +1295,7 @@ describe('Database', function () {
             d.find({ hello: 'world' }, function (err, docs) {
               assert.isNull(err);
               docs.length.should.equal(1);
-              var doc = docs[0];
+              let doc = docs[0];
               Object.keys(doc).length.should.equal(4);
               doc.cac.should.equal('rrr');
               doc.hello.should.equal('world');
@@ -1394,62 +1307,37 @@ describe('Database', function () {
       });
 
       it('Performing upsert with badly formatted fields yields a standard error not an exception', function (done) {
-        d.update(
-          { _id: '1234' },
-          { $set: { $$badfield: 5 } },
-          { upsert: true },
-          function (err, doc) {
-            assert.isDefined(err);
-            done();
-          }
-        );
+        d.update({ _id: '1234' }, { $set: { $$badfield: 5 } }, { upsert: true }, function (err, doc) {
+          assert.isDefined(err);
+          done();
+        });
       });
     }); // ==== End of 'Upserts' ==== //
 
     it('Cannot perform update if the update query is not either registered-modifiers-only or copy-only, or contain badly formatted fields', function (done) {
       d.insert({ something: 'yup' }, function () {
-        d.update(
-          {},
-          { boom: { $badfield: 5 } },
-          { multi: false },
-          function (err) {
+        d.update({}, { boom: { $badfield: 5 } }, { multi: false }, function (err) {
+          assert.isDefined(err);
+
+          d.update({}, { boom: { 'bad.field': 5 } }, { multi: false }, function (err) {
             assert.isDefined(err);
 
-            d.update(
-              {},
-              { boom: { 'bad.field': 5 } },
-              { multi: false },
-              function (err) {
+            d.update({}, { $inc: { test: 5 }, mixed: 'rrr' }, { multi: false }, function (err) {
+              assert.isDefined(err);
+
+              d.update({}, { $inexistent: { test: 5 } }, { multi: false }, function (err) {
                 assert.isDefined(err);
 
-                d.update(
-                  {},
-                  { $inc: { test: 5 }, mixed: 'rrr' },
-                  { multi: false },
-                  function (err) {
-                    assert.isDefined(err);
-
-                    d.update(
-                      {},
-                      { $inexistent: { test: 5 } },
-                      { multi: false },
-                      function (err) {
-                        assert.isDefined(err);
-
-                        done();
-                      }
-                    );
-                  }
-                );
-              }
-            );
-          }
-        );
+                done();
+              });
+            });
+          });
+        });
       });
     });
 
     it('Can update documents using multiple modifiers', function (done) {
-      var id;
+      let id;
 
       d.insert({ something: 'yup', other: 40 }, function (err, newDoc) {
         id = newDoc._id;
@@ -1458,7 +1346,7 @@ describe('Database', function () {
           {},
           { $set: { something: 'changed' }, $inc: { other: 10 } },
           { multi: false },
-          function (err, nr) {
+          function (err, { numAffected: nr }) {
             assert.isNull(err);
             nr.should.equal(1);
 
@@ -1480,7 +1368,7 @@ describe('Database', function () {
         { bloup: 'blap' },
         { $set: { hello: 'world' } },
         { upsert: true },
-        function (err, nr, newDoc) {
+        function (err, { numAffected: nr, updated: newDoc }) {
           assert.isNull(err);
           nr.should.equal(1);
           newDoc.bloup.should.equal('blap');
@@ -1524,26 +1412,17 @@ describe('Database', function () {
 
     it('Returns an error if the query is not well formed', function (done) {
       d.insert({ hello: 'world' }, function () {
-        d.update(
-          { $or: { hello: 'world' } },
-          { a: 1 },
-          {},
-          function (err, nr, upsert) {
-            assert.isDefined(err);
-            assert.isUndefined(nr);
-            assert.isUndefined(upsert);
-
-            done();
-          }
-        );
+        d.update({ $or: { hello: 'world' } }, { a: 1 }, {}, function (err) {
+          assert.isDefined(err);
+          done();
+        });
       });
     });
 
     it('If an error is thrown by a modifier, the database state is not changed', function (done) {
       d.insert({ hello: 'world' }, function (err, newDoc) {
-        d.update({}, { $inc: { hello: 4 } }, {}, function (err, nr) {
+        d.update({}, { $inc: { hello: 4 } }, {}, function (err) {
           assert.isDefined(err);
-          assert.isUndefined(nr);
 
           d.find({}, function (err, docs) {
             assert.deepEqual(docs, [{ _id: newDoc._id, hello: 'world' }]);
@@ -1585,27 +1464,80 @@ describe('Database', function () {
     it('Non-multi updates are persistent', function (done) {
       d.insert({ a: 1, hello: 'world' }, function (err, doc1) {
         d.insert({ a: 2, hello: 'earth' }, function (err, doc2) {
-          d.update(
-            { a: 2 },
-            { $set: { hello: 'changed' } },
-            {},
-            function (err) {
+          d.update({ a: 2 }, { $set: { hello: 'changed' } }, {}, function (err) {
+            assert.isNull(err);
+
+            d.find({}, function (err, docs) {
+              docs.sort(function (a, b) {
+                return a.a - b.a;
+              });
+              docs.length.should.equal(2);
+              _.isEqual(docs[0], {
+                _id: doc1._id,
+                a: 1,
+                hello: 'world',
+              }).should.equal(true);
+              _.isEqual(docs[1], {
+                _id: doc2._id,
+                a: 2,
+                hello: 'changed',
+              }).should.equal(true);
+
+              // Even after a reload the database state hasn't changed
+              d.loadDatabase(function (err) {
+                assert.isNull(err);
+
+                d.find({}, function (err, docs) {
+                  docs.sort(function (a, b) {
+                    return a.a - b.a;
+                  });
+                  docs.length.should.equal(2);
+                  _.isEqual(docs[0], {
+                    _id: doc1._id,
+                    a: 1,
+                    hello: 'world',
+                  }).should.equal(true);
+                  _.isEqual(docs[1], {
+                    _id: doc2._id,
+                    a: 2,
+                    hello: 'changed',
+                  }).should.equal(true);
+
+                  done();
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+
+    it('Multi updates are persistent', function (done) {
+      d.insert({ a: 1, hello: 'world' }, function (err, doc1) {
+        d.insert({ a: 2, hello: 'earth' }, function (err, doc2) {
+          d.insert({ a: 5, hello: 'pluton' }, function (err, doc3) {
+            d.update({ a: { $in: [1, 2] } }, { $set: { hello: 'changed' } }, { multi: true }, function (err) {
               assert.isNull(err);
 
               d.find({}, function (err, docs) {
                 docs.sort(function (a, b) {
                   return a.a - b.a;
                 });
-                docs.length.should.equal(2);
+                docs.length.should.equal(3);
                 _.isEqual(docs[0], {
                   _id: doc1._id,
                   a: 1,
-                  hello: 'world',
+                  hello: 'changed',
                 }).should.equal(true);
                 _.isEqual(docs[1], {
                   _id: doc2._id,
                   a: 2,
                   hello: 'changed',
+                }).should.equal(true);
+                _.isEqual(docs[2], {
+                  _id: doc3._id,
+                  a: 5,
+                  hello: 'pluton',
                 }).should.equal(true);
 
                 // Even after a reload the database state hasn't changed
@@ -1616,91 +1548,28 @@ describe('Database', function () {
                     docs.sort(function (a, b) {
                       return a.a - b.a;
                     });
-                    docs.length.should.equal(2);
+                    docs.length.should.equal(3);
                     _.isEqual(docs[0], {
                       _id: doc1._id,
                       a: 1,
-                      hello: 'world',
+                      hello: 'changed',
                     }).should.equal(true);
                     _.isEqual(docs[1], {
                       _id: doc2._id,
                       a: 2,
                       hello: 'changed',
                     }).should.equal(true);
+                    _.isEqual(docs[2], {
+                      _id: doc3._id,
+                      a: 5,
+                      hello: 'pluton',
+                    }).should.equal(true);
 
                     done();
                   });
                 });
               });
-            }
-          );
-        });
-      });
-    });
-
-    it('Multi updates are persistent', function (done) {
-      d.insert({ a: 1, hello: 'world' }, function (err, doc1) {
-        d.insert({ a: 2, hello: 'earth' }, function (err, doc2) {
-          d.insert({ a: 5, hello: 'pluton' }, function (err, doc3) {
-            d.update(
-              { a: { $in: [1, 2] } },
-              { $set: { hello: 'changed' } },
-              { multi: true },
-              function (err) {
-                assert.isNull(err);
-
-                d.find({}, function (err, docs) {
-                  docs.sort(function (a, b) {
-                    return a.a - b.a;
-                  });
-                  docs.length.should.equal(3);
-                  _.isEqual(docs[0], {
-                    _id: doc1._id,
-                    a: 1,
-                    hello: 'changed',
-                  }).should.equal(true);
-                  _.isEqual(docs[1], {
-                    _id: doc2._id,
-                    a: 2,
-                    hello: 'changed',
-                  }).should.equal(true);
-                  _.isEqual(docs[2], {
-                    _id: doc3._id,
-                    a: 5,
-                    hello: 'pluton',
-                  }).should.equal(true);
-
-                  // Even after a reload the database state hasn't changed
-                  d.loadDatabase(function (err) {
-                    assert.isNull(err);
-
-                    d.find({}, function (err, docs) {
-                      docs.sort(function (a, b) {
-                        return a.a - b.a;
-                      });
-                      docs.length.should.equal(3);
-                      _.isEqual(docs[0], {
-                        _id: doc1._id,
-                        a: 1,
-                        hello: 'changed',
-                      }).should.equal(true);
-                      _.isEqual(docs[1], {
-                        _id: doc2._id,
-                        a: 2,
-                        hello: 'changed',
-                      }).should.equal(true);
-                      _.isEqual(docs[2], {
-                        _id: doc3._id,
-                        a: 5,
-                        hello: 'pluton',
-                      }).should.equal(true);
-
-                      done();
-                    });
-                  });
-                });
-              }
-            );
+            });
           });
         });
       });
@@ -1710,11 +1579,11 @@ describe('Database', function () {
       d.insert({ a: 1, hello: 'world' }, function (err, doc1) {
         d.insert({ a: 2, hello: 'earth' }, function (err, doc2) {
           d.insert({ a: 5, hello: 'pluton' }, function (err, doc3) {
-            d.update({ a: 2 }, { $inc: { a: 10 } }, function (err, nr) {
+            d.update({ a: 2 }, { $inc: { a: 10 } }, function (err, { numAffected: nr }) {
               assert.isNull(err);
               nr.should.equal(1);
               d.find({}, function (err, docs) {
-                var d1 = _.find(docs, function (doc) {
+                let d1 = _.find(docs, function (doc) {
                     return doc._id === doc1._id;
                   }),
                   d2 = _.find(docs, function (doc) {
@@ -1742,35 +1611,30 @@ describe('Database', function () {
         d.insert({ a: 5 }, function (err, doc2) {
           d.insert({ a: 'abc' }, function (err, doc3) {
             // With this query, candidates are always returned in the order 4, 5, 'abc' so it's always the last one which fails
-            d.update(
-              { a: { $in: [4, 5, 'abc'] } },
-              { $inc: { a: 10 } },
-              { multi: true },
-              function (err) {
-                assert.isDefined(err);
+            d.update({ a: { $in: [4, 5, 'abc'] } }, { $inc: { a: 10 } }, { multi: true }, function (err) {
+              assert.isDefined(err);
 
-                // No index modified
-                _.each(d.indexes, function (index) {
-                  var docs = index.getAll(),
-                    d1 = _.find(docs, function (doc) {
-                      return doc._id === doc1._id;
-                    }),
-                    d2 = _.find(docs, function (doc) {
-                      return doc._id === doc2._id;
-                    }),
-                    d3 = _.find(docs, function (doc) {
-                      return doc._id === doc3._id;
-                    });
+              // No index modified
+              _.each(d.indexes, function (index) {
+                let docs = index.getAll(),
+                  d1 = _.find(docs, function (doc) {
+                    return doc._id === doc1._id;
+                  }),
+                  d2 = _.find(docs, function (doc) {
+                    return doc._id === doc2._id;
+                  }),
+                  d3 = _.find(docs, function (doc) {
+                    return doc._id === doc3._id;
+                  });
 
-                  // All changes rolled back, including those that didn't trigger an error
-                  d1.a.should.equal(4);
-                  d2.a.should.equal(5);
-                  d3.a.should.equal('abc');
-                });
+                // All changes rolled back, including those that didn't trigger an error
+                d1.a.should.equal(4);
+                d2.a.should.equal(5);
+                d3.a.should.equal('abc');
+              });
 
-                done();
-              }
-            );
+              done();
+            });
           });
         });
       });
@@ -1781,30 +1645,25 @@ describe('Database', function () {
       d.insert({ a: 4 }, function (err, doc1) {
         d.insert({ a: 5 }, function (err, doc2) {
           // With this query, candidates are always returned in the order 4, 5, 'abc' so it's always the last one which fails
-          d.update(
-            { a: { $in: [4, 5, 'abc'] } },
-            { $set: { a: 10 } },
-            { multi: true },
-            function (err) {
-              assert.isDefined(err);
+          d.update({ a: { $in: [4, 5, 'abc'] } }, { $set: { a: 10 } }, { multi: true }, function (err) {
+            assert.isDefined(err);
 
-              // Check that no index was modified
-              _.each(d.indexes, function (index) {
-                var docs = index.getAll(),
-                  d1 = _.find(docs, function (doc) {
-                    return doc._id === doc1._id;
-                  }),
-                  d2 = _.find(docs, function (doc) {
-                    return doc._id === doc2._id;
-                  });
+            // Check that no index was modified
+            _.each(d.indexes, function (index) {
+              let docs = index.getAll(),
+                d1 = _.find(docs, function (doc) {
+                  return doc._id === doc1._id;
+                }),
+                d2 = _.find(docs, function (doc) {
+                  return doc._id === doc2._id;
+                });
 
-                d1.a.should.equal(4);
-                d2.a.should.equal(5);
-              });
+              d1.a.should.equal(4);
+              d2.a.should.equal(5);
+            });
 
-              done();
-            }
-          );
+            done();
+          });
         });
       });
     });
@@ -1817,7 +1676,7 @@ describe('Database', function () {
           { a: 7 },
           { $set: { u: 1 } },
           { multi: true, returnUpdatedDocs: true },
-          function (err, num, updatedDocs) {
+          function (err, { numAffected: num, updated: updatedDocs }) {
             num.should.equal(0);
             updatedDocs.length.should.equal(0);
 
@@ -1825,7 +1684,7 @@ describe('Database', function () {
               { a: 5 },
               { $set: { u: 2 } },
               { multi: true, returnUpdatedDocs: true },
-              function (err, num, updatedDocs) {
+              function (err, { numAffected: num, updated: updatedDocs }) {
                 num.should.equal(1);
                 updatedDocs.length.should.equal(1);
                 updatedDocs[0].a.should.equal(5);
@@ -1835,7 +1694,7 @@ describe('Database', function () {
                   { a: { $in: [4, 6] } },
                   { $set: { u: 3 } },
                   { multi: true, returnUpdatedDocs: true },
-                  function (err, num, updatedDocs) {
+                  function (err, { numAffected: num, updated: updatedDocs }) {
                     num.should.equal(2);
                     updatedDocs.length.should.equal(2);
                     updatedDocs[0].u.should.equal(3);
@@ -1859,14 +1718,14 @@ describe('Database', function () {
     });
 
     it('createdAt property is unchanged and updatedAt correct after an update, even a complete document replacement', function (done) {
-      var d2 = new Datastore({
+      let d2 = new MemoryDB({
         inMemoryOnly: true,
         timestampData: true,
         storage,
       });
       d2.insert({ a: 1 });
       d2.findOne({ a: 1 }, function (err, doc) {
-        var createdAt = doc.createdAt.getTime();
+        let createdAt = doc.createdAt.getTime();
 
         // Modifying update
         setTimeout(function () {
@@ -1896,33 +1755,28 @@ describe('Database', function () {
         d.insert({ a: 2 });
 
         // returnUpdatedDocs set to false
-        d.update(
-          { a: 1 },
-          { $set: { b: 20 } },
-          {},
-          function (err, numAffected, affectedDocuments, upsert) {
-            assert.isNull(err);
-            numAffected.should.equal(1);
-            assert.isUndefined(affectedDocuments);
-            assert.isUndefined(upsert);
+        d.update({ a: 1 }, { $set: { b: 20 } }, {}, function (err, { numAffected, updated, upsert }) {
+          assert.isNull(err);
+          numAffected.should.equal(1);
+          assert.isUndefined(updated);
+          assert.isUndefined(upsert);
 
-            // returnUpdatedDocs set to true
-            d.update(
-              { a: 1 },
-              { $set: { b: 21 } },
-              { returnUpdatedDocs: true },
-              function (err, numAffected, affectedDocuments, upsert) {
-                assert.isNull(err);
-                numAffected.should.equal(1);
-                affectedDocuments.a.should.equal(1);
-                affectedDocuments.b.should.equal(21);
-                assert.isUndefined(upsert);
+          // returnUpdatedDocs set to true
+          d.update(
+            { a: 1 },
+            { $set: { b: 21 } },
+            { returnUpdatedDocs: true },
+            function (err, { numAffected, updated, upsert }) {
+              assert.isNull(err);
+              numAffected.should.equal(1);
+              updated.a.should.equal(1);
+              updated.b.should.equal(21);
+              assert.isUndefined(upsert);
 
-                done();
-              }
-            );
-          }
-        );
+              done();
+            }
+          );
+        });
       });
 
       it('Regular update, multi true', function (done) {
@@ -1930,32 +1784,27 @@ describe('Database', function () {
         d.insert({ a: 2 });
 
         // returnUpdatedDocs set to false
-        d.update(
-          {},
-          { $set: { b: 20 } },
-          { multi: true },
-          function (err, numAffected, affectedDocuments, upsert) {
-            assert.isNull(err);
-            numAffected.should.equal(2);
-            assert.isUndefined(affectedDocuments);
-            assert.isUndefined(upsert);
+        d.update({}, { $set: { b: 20 } }, { multi: true }, function (err, { numAffected, updated, upsert }) {
+          assert.isNull(err);
+          numAffected.should.equal(2);
+          assert.isUndefined(updated);
+          assert.isUndefined(upsert);
 
-            // returnUpdatedDocs set to true
-            d.update(
-              {},
-              { $set: { b: 21 } },
-              { multi: true, returnUpdatedDocs: true },
-              function (err, numAffected, affectedDocuments, upsert) {
-                assert.isNull(err);
-                numAffected.should.equal(2);
-                affectedDocuments.length.should.equal(2);
-                assert.isUndefined(upsert);
+          // returnUpdatedDocs set to true
+          d.update(
+            {},
+            { $set: { b: 21 } },
+            { multi: true, returnUpdatedDocs: true },
+            function (err, { numAffected, updated, upsert }) {
+              assert.isNull(err);
+              numAffected.should.equal(2);
+              updated.length.should.equal(2);
+              assert.isUndefined(upsert);
 
-                done();
-              }
-            );
-          }
-        );
+              done();
+            }
+          );
+        });
       });
 
       it('Upsert', function (done) {
@@ -1963,43 +1812,33 @@ describe('Database', function () {
         d.insert({ a: 2 });
 
         // Upsert flag not set
-        d.update(
-          { a: 3 },
-          { $set: { b: 20 } },
-          {},
-          function (err, numAffected, affectedDocuments, upsert) {
+        d.update({ a: 3 }, { $set: { b: 20 } }, {}, function (err, { numAffected, updated, upsert }) {
+          assert.isNull(err);
+          numAffected.should.equal(0);
+          assert.isUndefined(updated);
+          assert.isUndefined(upsert);
+
+          // Upsert flag set
+          d.update({ a: 3 }, { $set: { b: 21 } }, { upsert: true }, function (err, { numAffected, updated, upsert }) {
             assert.isNull(err);
-            numAffected.should.equal(0);
-            assert.isUndefined(affectedDocuments);
-            assert.isUndefined(upsert);
+            numAffected.should.equal(1);
+            updated.a.should.equal(3);
+            updated.b.should.equal(21);
+            upsert.should.equal(true);
 
-            // Upsert flag set
-            d.update(
-              { a: 3 },
-              { $set: { b: 21 } },
-              { upsert: true },
-              function (err, numAffected, affectedDocuments, upsert) {
-                assert.isNull(err);
-                numAffected.should.equal(1);
-                affectedDocuments.a.should.equal(3);
-                affectedDocuments.b.should.equal(21);
-                upsert.should.equal(true);
-
-                d.find({}, function (err, docs) {
-                  docs.length.should.equal(3);
-                  done();
-                });
-              }
-            );
-          }
-        );
+            d.find({}, function (err, docs) {
+              docs.length.should.equal(3);
+              done();
+            });
+          });
+        });
       });
     }); // ==== End of 'Update - Callback signature' ==== //
   }); // ==== End of 'Update' ==== //
 
   describe('Remove', function () {
     it('Can remove multiple documents', function (done) {
-      var id1, id2, id3;
+      let id1, id2, id3;
 
       // Test DB status
       function testPostUpdateState(cb) {
@@ -2020,16 +1859,13 @@ describe('Database', function () {
           function (cb) {
             d.insert({ somedata: 'ok' }, function (err, doc1) {
               id1 = doc1._id;
-              d.insert(
-                { somedata: 'again', plus: 'additional data' },
-                function (err, doc2) {
-                  id2 = doc2._id;
-                  d.insert({ somedata: 'again' }, function (err, doc3) {
-                    id3 = doc3._id;
-                    return cb(err);
-                  });
-                }
-              );
+              d.insert({ somedata: 'again', plus: 'additional data' }, function (err, doc2) {
+                id2 = doc2._id;
+                d.insert({ somedata: 'again' }, function (err, doc3) {
+                  id3 = doc3._id;
+                  return cb(err);
+                });
+              });
             });
           },
           function (cb) {
@@ -2061,7 +1897,7 @@ describe('Database', function () {
               docs.length.should.equal(3);
 
               // Remove two docs simultaneously
-              var toRemove = ['Mars', 'Saturn'];
+              let toRemove = ['Mars', 'Saturn'];
               async.each(
                 toRemove,
                 function (planet, cb) {
@@ -2085,10 +1921,8 @@ describe('Database', function () {
 
     it('Returns an error if the query is not well formed', function (done) {
       d.insert({ hello: 'world' }, function () {
-        d.remove({ $or: { hello: 'world' } }, {}, function (err, nr, upsert) {
+        d.remove({ $or: { hello: 'world' } }, {}, function (err) {
           assert.isDefined(err);
-          assert.isUndefined(nr);
-          assert.isUndefined(upsert);
 
           done();
         });
@@ -2193,7 +2027,7 @@ describe('Database', function () {
               assert.isNull(err);
               nr.should.equal(1);
               d.find({}, function (err, docs) {
-                var d1 = _.find(docs, function (doc) {
+                let d1 = _.find(docs, function (doc) {
                     return doc._id === doc1._id;
                   }),
                   d2 = _.find(docs, function (doc) {
@@ -2379,35 +2213,27 @@ describe('Database', function () {
         d.ensureIndex({ fieldName: 'uni', unique: true });
         d.ensureIndex({ fieldName: 'nonu2' });
 
-        d.insert(
-          { nonu1: 'yes', nonu2: 'yes2', uni: 'willfail' },
-          function (err, newDoc) {
-            assert.isNull(err);
+        d.insert({ nonu1: 'yes', nonu2: 'yes2', uni: 'willfail' }, function (err, newDoc) {
+          assert.isNull(err);
+          d.indexes.nonu1.tree.getNumberOfKeys().should.equal(1);
+          d.indexes.uni.tree.getNumberOfKeys().should.equal(1);
+          d.indexes.nonu2.tree.getNumberOfKeys().should.equal(1);
+
+          d.insert({ nonu1: 'no', nonu2: 'no2', uni: 'willfail' }, function (err) {
+            err.errorType.should.equal('uniqueViolated');
+
+            // No index was modified
             d.indexes.nonu1.tree.getNumberOfKeys().should.equal(1);
             d.indexes.uni.tree.getNumberOfKeys().should.equal(1);
             d.indexes.nonu2.tree.getNumberOfKeys().should.equal(1);
 
-            d.insert(
-              { nonu1: 'no', nonu2: 'no2', uni: 'willfail' },
-              function (err) {
-                err.errorType.should.equal('uniqueViolated');
+            assert.deepEqual(d.indexes.nonu1.getMatching('yes'), [newDoc]);
+            assert.deepEqual(d.indexes.uni.getMatching('willfail'), [newDoc]);
+            assert.deepEqual(d.indexes.nonu2.getMatching('yes2'), [newDoc]);
 
-                // No index was modified
-                d.indexes.nonu1.tree.getNumberOfKeys().should.equal(1);
-                d.indexes.uni.tree.getNumberOfKeys().should.equal(1);
-                d.indexes.nonu2.tree.getNumberOfKeys().should.equal(1);
-
-                assert.deepEqual(d.indexes.nonu1.getMatching('yes'), [newDoc]);
-                assert.deepEqual(d.indexes.uni.getMatching('willfail'), [
-                  newDoc,
-                ]);
-                assert.deepEqual(d.indexes.nonu2.getMatching('yes2'), [newDoc]);
-
-                done();
-              }
-            );
-          }
-        );
+            done();
+          });
+        });
       });
 
       it('Unique indexes prevent you from inserting two docs where the field is undefined except if theyre sparse', function (done) {
@@ -2472,15 +2298,11 @@ describe('Database', function () {
 
               d.indexes._id.getMatching(doc1._id).length.should.equal(1);
               d.indexes.a.getMatching(1).length.should.equal(1);
-              d.indexes._id
-                .getMatching(doc1._id)[0]
-                .should.equal(d.indexes.a.getMatching(1)[0]);
+              d.indexes._id.getMatching(doc1._id)[0].should.equal(d.indexes.a.getMatching(1)[0]);
 
               d.indexes._id.getMatching(doc2._id).length.should.equal(1);
               d.indexes.a.getMatching(2).length.should.equal(1);
-              d.indexes._id
-                .getMatching(doc2._id)[0]
-                .should.equal(d.indexes.a.getMatching(2)[0]);
+              d.indexes._id.getMatching(doc2._id)[0].should.equal(d.indexes.a.getMatching(2)[0]);
 
               done();
             });
@@ -2501,9 +2323,7 @@ describe('Database', function () {
 
               d.indexes._id.getMatching(doc1._id).length.should.equal(1);
               d.indexes.a.getMatching(1).length.should.equal(1);
-              d.indexes._id
-                .getMatching(doc1._id)[0]
-                .should.equal(d.indexes.a.getMatching(1)[0]);
+              d.indexes._id.getMatching(doc1._id)[0].should.equal(d.indexes.a.getMatching(1)[0]);
 
               d.indexes.a.getMatching(2).length.should.equal(0);
 
@@ -2520,59 +2340,54 @@ describe('Database', function () {
 
         d.insert({ a: 1, b: 'hello' }, function (err, _doc1) {
           d.insert({ a: 2, b: 'si' }, function (err, _doc2) {
-            d.update(
-              { a: 1 },
-              { $set: { a: 456, b: 'no' } },
-              {},
-              function (err, nr) {
-                var data = d.getAllData(),
-                  doc1 = _.find(data, function (doc) {
-                    return doc._id === _doc1._id;
-                  }),
-                  doc2 = _.find(data, function (doc) {
-                    return doc._id === _doc2._id;
+            d.update({ a: 1 }, { $set: { a: 456, b: 'no' } }, {}, function (err, { numAffected: nr }) {
+              let data = d.getAllData(),
+                doc1 = _.find(data, function (doc) {
+                  return doc._id === _doc1._id;
+                }),
+                doc2 = _.find(data, function (doc) {
+                  return doc._id === _doc2._id;
+                });
+
+              assert.isNull(err);
+              nr.should.equal(1);
+
+              data.length.should.equal(2);
+              assert.deepEqual(doc1, { a: 456, b: 'no', _id: _doc1._id });
+              assert.deepEqual(doc2, { a: 2, b: 'si', _id: _doc2._id });
+
+              d.update(
+                {},
+                { $inc: { a: 10 }, $set: { b: 'same' } },
+                { multi: true },
+                function (err, { numAffected: nr }) {
+                  let data = d.getAllData(),
+                    doc1 = _.find(data, function (doc) {
+                      return doc._id === _doc1._id;
+                    }),
+                    doc2 = _.find(data, function (doc) {
+                      return doc._id === _doc2._id;
+                    });
+
+                  assert.isNull(err);
+                  nr.should.equal(2);
+
+                  data.length.should.equal(2);
+                  assert.deepEqual(doc1, {
+                    a: 466,
+                    b: 'same',
+                    _id: _doc1._id,
+                  });
+                  assert.deepEqual(doc2, {
+                    a: 12,
+                    b: 'same',
+                    _id: _doc2._id,
                   });
 
-                assert.isNull(err);
-                nr.should.equal(1);
-
-                data.length.should.equal(2);
-                assert.deepEqual(doc1, { a: 456, b: 'no', _id: _doc1._id });
-                assert.deepEqual(doc2, { a: 2, b: 'si', _id: _doc2._id });
-
-                d.update(
-                  {},
-                  { $inc: { a: 10 }, $set: { b: 'same' } },
-                  { multi: true },
-                  function (err, nr) {
-                    var data = d.getAllData(),
-                      doc1 = _.find(data, function (doc) {
-                        return doc._id === _doc1._id;
-                      }),
-                      doc2 = _.find(data, function (doc) {
-                        return doc._id === _doc2._id;
-                      });
-
-                    assert.isNull(err);
-                    nr.should.equal(2);
-
-                    data.length.should.equal(2);
-                    assert.deepEqual(doc1, {
-                      a: 466,
-                      b: 'same',
-                      _id: _doc1._id,
-                    });
-                    assert.deepEqual(doc2, {
-                      a: 12,
-                      b: 'same',
-                      _id: _doc2._id,
-                    });
-
-                    done();
-                  }
-                );
-              }
-            );
+                  done();
+                }
+              );
+            });
           });
         });
       });
@@ -2584,81 +2399,58 @@ describe('Database', function () {
         d.insert({ a: 1, b: 'hello' }, function (err, doc1) {
           d.insert({ a: 2, b: 'si' }, function (err, doc2) {
             // Simple update
-            d.update(
-              { a: 1 },
-              { $set: { a: 456, b: 'no' } },
-              {},
-              function (err, nr) {
-                assert.isNull(err);
-                nr.should.equal(1);
+            d.update({ a: 1 }, { $set: { a: 456, b: 'no' } }, {}, function (err, { numAffected: nr }) {
+              assert.isNull(err);
+              nr.should.equal(1);
 
-                d.indexes.a.tree.getNumberOfKeys().should.equal(2);
-                d.indexes.a.getMatching(456)[0]._id.should.equal(doc1._id);
-                d.indexes.a.getMatching(2)[0]._id.should.equal(doc2._id);
+              d.indexes.a.tree.getNumberOfKeys().should.equal(2);
+              d.indexes.a.getMatching(456)[0]._id.should.equal(doc1._id);
+              d.indexes.a.getMatching(2)[0]._id.should.equal(doc2._id);
 
-                d.indexes.b.tree.getNumberOfKeys().should.equal(2);
-                d.indexes.b.getMatching('no')[0]._id.should.equal(doc1._id);
-                d.indexes.b.getMatching('si')[0]._id.should.equal(doc2._id);
+              d.indexes.b.tree.getNumberOfKeys().should.equal(2);
+              d.indexes.b.getMatching('no')[0]._id.should.equal(doc1._id);
+              d.indexes.b.getMatching('si')[0]._id.should.equal(doc2._id);
 
-                // The same pointers are shared between all indexes
-                d.indexes.a.tree.getNumberOfKeys().should.equal(2);
-                d.indexes.b.tree.getNumberOfKeys().should.equal(2);
-                d.indexes._id.tree.getNumberOfKeys().should.equal(2);
-                d.indexes.a
-                  .getMatching(456)[0]
-                  .should.equal(d.indexes._id.getMatching(doc1._id)[0]);
-                d.indexes.b
-                  .getMatching('no')[0]
-                  .should.equal(d.indexes._id.getMatching(doc1._id)[0]);
-                d.indexes.a
-                  .getMatching(2)[0]
-                  .should.equal(d.indexes._id.getMatching(doc2._id)[0]);
-                d.indexes.b
-                  .getMatching('si')[0]
-                  .should.equal(d.indexes._id.getMatching(doc2._id)[0]);
+              // The same pointers are shared between all indexes
+              d.indexes.a.tree.getNumberOfKeys().should.equal(2);
+              d.indexes.b.tree.getNumberOfKeys().should.equal(2);
+              d.indexes._id.tree.getNumberOfKeys().should.equal(2);
+              d.indexes.a.getMatching(456)[0].should.equal(d.indexes._id.getMatching(doc1._id)[0]);
+              d.indexes.b.getMatching('no')[0].should.equal(d.indexes._id.getMatching(doc1._id)[0]);
+              d.indexes.a.getMatching(2)[0].should.equal(d.indexes._id.getMatching(doc2._id)[0]);
+              d.indexes.b.getMatching('si')[0].should.equal(d.indexes._id.getMatching(doc2._id)[0]);
 
-                // Multi update
-                d.update(
-                  {},
-                  { $inc: { a: 10 }, $set: { b: 'same' } },
-                  { multi: true },
-                  function (err, nr) {
-                    assert.isNull(err);
-                    nr.should.equal(2);
+              // Multi update
+              d.update(
+                {},
+                { $inc: { a: 10 }, $set: { b: 'same' } },
+                { multi: true },
+                function (err, { numAffected: nr }) {
+                  assert.isNull(err);
+                  nr.should.equal(2);
 
-                    d.indexes.a.tree.getNumberOfKeys().should.equal(2);
-                    d.indexes.a.getMatching(466)[0]._id.should.equal(doc1._id);
-                    d.indexes.a.getMatching(12)[0]._id.should.equal(doc2._id);
+                  d.indexes.a.tree.getNumberOfKeys().should.equal(2);
+                  d.indexes.a.getMatching(466)[0]._id.should.equal(doc1._id);
+                  d.indexes.a.getMatching(12)[0]._id.should.equal(doc2._id);
 
-                    d.indexes.b.tree.getNumberOfKeys().should.equal(1);
-                    d.indexes.b.getMatching('same').length.should.equal(2);
-                    _.pluck(
-                      d.indexes.b.getMatching('same'),
-                      '_id'
-                    ).should.contain(doc1._id);
-                    _.pluck(
-                      d.indexes.b.getMatching('same'),
-                      '_id'
-                    ).should.contain(doc2._id);
+                  d.indexes.b.tree.getNumberOfKeys().should.equal(1);
+                  d.indexes.b.getMatching('same').length.should.equal(2);
+                  _.pluck(d.indexes.b.getMatching('same'), '_id').should.contain(doc1._id);
+                  _.pluck(d.indexes.b.getMatching('same'), '_id').should.contain(doc2._id);
 
-                    // The same pointers are shared between all indexes
-                    d.indexes.a.tree.getNumberOfKeys().should.equal(2);
-                    d.indexes.b.tree.getNumberOfKeys().should.equal(1);
-                    d.indexes.b.getAll().length.should.equal(2);
-                    d.indexes._id.tree.getNumberOfKeys().should.equal(2);
-                    d.indexes.a
-                      .getMatching(466)[0]
-                      .should.equal(d.indexes._id.getMatching(doc1._id)[0]);
-                    d.indexes.a
-                      .getMatching(12)[0]
-                      .should.equal(d.indexes._id.getMatching(doc2._id)[0]);
-                    // Can't test the pointers in b as their order is randomized, but it is the same as with a
+                  // The same pointers are shared between all indexes
+                  d.indexes.a.tree.getNumberOfKeys().should.equal(2);
+                  d.indexes.b.tree.getNumberOfKeys().should.equal(1);
+                  d.indexes.b.getAll().length.should.equal(2);
+                  d.indexes._id.tree.getNumberOfKeys().should.equal(2);
+                  d.indexes.a.getMatching(466)[0].should.equal(d.indexes._id.getMatching(doc1._id)[0]);
+                  d.indexes.a.getMatching(12)[0].should.equal(d.indexes._id.getMatching(doc2._id)[0]);
+                  // Can't test the pointers in b as their order is randomized, but it is the same as with a
 
-                    done();
-                  }
-                );
-              }
-            );
+                  done();
+                }
+              );
+            });
           });
         });
       });
@@ -2672,64 +2464,59 @@ describe('Database', function () {
           d.insert({ a: 2, b: 20, c: 200 }, function (err, _doc2) {
             d.insert({ a: 3, b: 30, c: 300 }, function (err, _doc3) {
               // Will conflict with doc3
-              d.update(
-                { a: 2 },
-                { $inc: { a: 10, c: 1000 }, $set: { b: 30 } },
-                {},
-                function (err) {
-                  var data = d.getAllData(),
-                    doc1 = _.find(data, function (doc) {
-                      return doc._id === _doc1._id;
-                    }),
-                    doc2 = _.find(data, function (doc) {
-                      return doc._id === _doc2._id;
-                    }),
-                    doc3 = _.find(data, function (doc) {
-                      return doc._id === _doc3._id;
-                    });
-
-                  err.errorType.should.equal('uniqueViolated');
-
-                  // Data left unchanged
-                  data.length.should.equal(3);
-                  assert.deepEqual(doc1, {
-                    a: 1,
-                    b: 10,
-                    c: 100,
-                    _id: _doc1._id,
-                  });
-                  assert.deepEqual(doc2, {
-                    a: 2,
-                    b: 20,
-                    c: 200,
-                    _id: _doc2._id,
-                  });
-                  assert.deepEqual(doc3, {
-                    a: 3,
-                    b: 30,
-                    c: 300,
-                    _id: _doc3._id,
+              d.update({ a: 2 }, { $inc: { a: 10, c: 1000 }, $set: { b: 30 } }, {}, function (err) {
+                let data = d.getAllData(),
+                  doc1 = _.find(data, function (doc) {
+                    return doc._id === _doc1._id;
+                  }),
+                  doc2 = _.find(data, function (doc) {
+                    return doc._id === _doc2._id;
+                  }),
+                  doc3 = _.find(data, function (doc) {
+                    return doc._id === _doc3._id;
                   });
 
-                  // All indexes left unchanged and pointing to the same docs
-                  d.indexes.a.tree.getNumberOfKeys().should.equal(3);
-                  d.indexes.a.getMatching(1)[0].should.equal(doc1);
-                  d.indexes.a.getMatching(2)[0].should.equal(doc2);
-                  d.indexes.a.getMatching(3)[0].should.equal(doc3);
+                err.errorType.should.equal('uniqueViolated');
 
-                  d.indexes.b.tree.getNumberOfKeys().should.equal(3);
-                  d.indexes.b.getMatching(10)[0].should.equal(doc1);
-                  d.indexes.b.getMatching(20)[0].should.equal(doc2);
-                  d.indexes.b.getMatching(30)[0].should.equal(doc3);
+                // Data left unchanged
+                data.length.should.equal(3);
+                assert.deepEqual(doc1, {
+                  a: 1,
+                  b: 10,
+                  c: 100,
+                  _id: _doc1._id,
+                });
+                assert.deepEqual(doc2, {
+                  a: 2,
+                  b: 20,
+                  c: 200,
+                  _id: _doc2._id,
+                });
+                assert.deepEqual(doc3, {
+                  a: 3,
+                  b: 30,
+                  c: 300,
+                  _id: _doc3._id,
+                });
 
-                  d.indexes.c.tree.getNumberOfKeys().should.equal(3);
-                  d.indexes.c.getMatching(100)[0].should.equal(doc1);
-                  d.indexes.c.getMatching(200)[0].should.equal(doc2);
-                  d.indexes.c.getMatching(300)[0].should.equal(doc3);
+                // All indexes left unchanged and pointing to the same docs
+                d.indexes.a.tree.getNumberOfKeys().should.equal(3);
+                d.indexes.a.getMatching(1)[0].should.equal(doc1);
+                d.indexes.a.getMatching(2)[0].should.equal(doc2);
+                d.indexes.a.getMatching(3)[0].should.equal(doc3);
 
-                  done();
-                }
-              );
+                d.indexes.b.tree.getNumberOfKeys().should.equal(3);
+                d.indexes.b.getMatching(10)[0].should.equal(doc1);
+                d.indexes.b.getMatching(20)[0].should.equal(doc2);
+                d.indexes.b.getMatching(30)[0].should.equal(doc3);
+
+                d.indexes.c.tree.getNumberOfKeys().should.equal(3);
+                d.indexes.c.getMatching(100)[0].should.equal(doc1);
+                d.indexes.c.getMatching(200)[0].should.equal(doc2);
+                d.indexes.c.getMatching(300)[0].should.equal(doc3);
+
+                done();
+              });
             });
           });
         });
@@ -2749,7 +2536,7 @@ describe('Database', function () {
                 { $inc: { a: 10, c: 1000 }, $set: { b: 30 } },
                 { multi: true },
                 function (err) {
-                  var data = d.getAllData(),
+                  let data = d.getAllData(),
                     doc1 = _.find(data, function (doc) {
                       return doc._id === _doc1._id;
                     }),
@@ -2816,7 +2603,7 @@ describe('Database', function () {
           d.insert({ a: 2, b: 'si' }, function (err, _doc2) {
             d.insert({ a: 3, b: 'coin' }, function (err, _doc3) {
               d.remove({ a: 1 }, {}, function (err, nr) {
-                var data = d.getAllData(),
+                let data = d.getAllData(),
                   doc2 = _.find(data, function (doc) {
                     return doc._id === _doc2._id;
                   }),
@@ -2831,19 +2618,15 @@ describe('Database', function () {
                 assert.deepEqual(doc2, { a: 2, b: 'si', _id: _doc2._id });
                 assert.deepEqual(doc3, { a: 3, b: 'coin', _id: _doc3._id });
 
-                d.remove(
-                  { a: { $in: [2, 3] } },
-                  { multi: true },
-                  function (err, nr) {
-                    var data = d.getAllData();
+                d.remove({ a: { $in: [2, 3] } }, { multi: true }, function (err, nr) {
+                  let data = d.getAllData();
 
-                    assert.isNull(err);
-                    nr.should.equal(2);
-                    data.length.should.equal(0);
+                  assert.isNull(err);
+                  nr.should.equal(2);
+                  data.length.should.equal(0);
 
-                    done();
-                  }
-                );
+                  done();
+                });
               });
             });
           });
@@ -2874,18 +2657,10 @@ describe('Database', function () {
                 d.indexes.a.tree.getNumberOfKeys().should.equal(2);
                 d.indexes.b.tree.getNumberOfKeys().should.equal(2);
                 d.indexes._id.tree.getNumberOfKeys().should.equal(2);
-                d.indexes.a
-                  .getMatching(2)[0]
-                  .should.equal(d.indexes._id.getMatching(doc2._id)[0]);
-                d.indexes.b
-                  .getMatching('si')[0]
-                  .should.equal(d.indexes._id.getMatching(doc2._id)[0]);
-                d.indexes.a
-                  .getMatching(3)[0]
-                  .should.equal(d.indexes._id.getMatching(doc3._id)[0]);
-                d.indexes.b
-                  .getMatching('coin')[0]
-                  .should.equal(d.indexes._id.getMatching(doc3._id)[0]);
+                d.indexes.a.getMatching(2)[0].should.equal(d.indexes._id.getMatching(doc2._id)[0]);
+                d.indexes.b.getMatching('si')[0].should.equal(d.indexes._id.getMatching(doc2._id)[0]);
+                d.indexes.a.getMatching(3)[0].should.equal(d.indexes._id.getMatching(doc3._id)[0]);
+                d.indexes.b.getMatching('coin')[0].should.equal(d.indexes._id.getMatching(doc3._id)[0]);
 
                 // Multi remove
                 d.remove({}, { multi: true }, function (err, nr) {

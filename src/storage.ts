@@ -1,4 +1,7 @@
-module.exports = class Storage {
+export default class Storage {
+  public storage: any;
+  public crashSafeWriteFile: any;
+
   constructor(storage) {
     this.storage = storage;
     this.crashSafeWriteFile = this.writeFile;
