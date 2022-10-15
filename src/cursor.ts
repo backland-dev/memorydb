@@ -218,5 +218,7 @@ class Cursor {
   };
 }
 
+export { Cursor };
+
 // Interface
 export default Cursor;

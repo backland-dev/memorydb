@@ -1,6 +1,6 @@
 {
   "name": "@backland/memorydb",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "typings": "lib",
   "author": "antoniopresto <antoniopresto@gmail.com>",
   "license": "MIT",
